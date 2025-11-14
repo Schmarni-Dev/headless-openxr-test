@@ -1,34 +1,11 @@
-use std::{ptr, sync::Arc, thread, time::Duration};
+use std::{ptr, thread, time::Duration};
 
-use ash::vk::{self, ApplicationInfo, DeviceQueueCreateInfo};
 use openxr::{
-    ActionSet, ActiveActionSet, Binding, CompositionLayerFlags, CompositionLayerProjection,
-    CompositionLayerProjectionView, EnvironmentBlendMode, ExtensionSet, FormFactor, FrameStream,
-    FrameWaiter, ReferenceSpaceType, Session, SessionState, SwapchainCreateFlags,
-    SwapchainSubImage, SwapchainUsageFlags, SystemId, Vector2f, ViewConfigurationType, Vulkan,
-    sys::{self},
+    ActiveActionSet, Binding, ExtensionSet, FormFactor, FrameStream, FrameWaiter, Session,
+    SessionState, SystemId, Vector2f, ViewConfigurationType, Vulkan, sys,
 };
-use tracing::{error, info};
+use tracing::info;
 use tracing_subscriber::EnvFilter;
-use vulkano::{
-    DeviceSize, Handle, Version, VulkanObject,
-    buffer::{BufferCreateInfo, BufferUsage},
-    command_buffer::{
-        CommandBufferUsage, CopyBufferToImageInfo, PrimaryCommandBufferAbstract,
-        allocator::{StandardCommandBufferAllocator, StandardCommandBufferAllocatorCreateInfo},
-    },
-    device::QueueCreateInfo,
-    format::Format,
-    image::{ImageUsage, sys::RawImage},
-    memory::{MemoryPropertyFlags, allocator::AllocationCreateInfo},
-    sync::GpuFuture,
-};
-
-// const COLOR: [u8;4] = [255, 0, 0, 25u8];
-// const COLOR: [u8; 4] = [236, 133, 161, 40u8];
-// const COLOR: [u8; 4] = [148, 80, 99, 40u8];
-const COLOR: [u8; 4] = [0, 0, 0, 220u8];
-const PREMUL: bool = false;
 
 fn main() {
     tracing_subscriber::fmt()
@@ -36,10 +13,6 @@ fn main() {
         .init();
     info!("Hewow oworld");
     let oxr_entry = unsafe { openxr::Entry::load() }.unwrap();
-    let vk_entry = unsafe { ash::Entry::load() }.unwrap();
-    let vk_get_instance_proc_addr = vk_entry.static_fn().get_instance_proc_addr;
-    let vk_entry =
-        vulkano::library::VulkanLibrary::with_loader(AshEntryVulkanoLoader(vk_entry)).unwrap();
     let exts = oxr_entry.enumerate_extensions().unwrap();
     let mut enabled_exts = ExtensionSet::default();
     if !exts.mnd_headless {
@@ -64,12 +37,9 @@ fn main() {
         .unwrap();
     let system_props = oxr_instance.system_properties(system).unwrap();
     info!(?system_props);
-    let (oxr_session, mut oxr_frame_waiter, mut oxr_frame_stream) =
+    let (oxr_session, mut oxr_frame_waiter, _oxr_frame_stream) =
         create_session(&oxr_instance, system).unwrap();
 
-    let ref_space = oxr_session
-        .create_reference_space(ReferenceSpaceType::LOCAL, openxr::Posef::IDENTITY)
-        .unwrap();
     let mut session_running = false;
     info!("create buffer");
     let action_set = oxr_instance.create_action_set("set", "set", 100).unwrap();
@@ -156,17 +126,6 @@ fn main() {
         let v = action.state(&oxr_session, openxr::Path::NULL).unwrap();
         let v = v.current_state;
         info!("action value: {:?}", v);
-    }
-}
-
-struct AshEntryVulkanoLoader(ash::Entry);
-unsafe impl vulkano::library::Loader for AshEntryVulkanoLoader {
-    unsafe fn get_instance_proc_addr(
-        &self,
-        instance: ash::vk::Instance,
-        name: *const std::os::raw::c_char,
-    ) -> ash::vk::PFN_vkVoidFunction {
-        unsafe { self.0.get_instance_proc_addr(instance, name) }
     }
 }
 
